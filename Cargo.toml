@@ -1,0 +1,9 @@
+[package]
+name = "mariadb-rs"
+version = "0.1.0"
+authors = ["Trevor Trost"]
+description = "Rust bindings and wrapper around MariaDB / MySQL."
+
+
+[dependencies]
+libc = "*"
