@@ -5,7 +5,7 @@ use ::ffi::mysql::*;
 
 /// An enum of the possible field types when working with SQL.
 #[repr(u32)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum SQLFieldType {
     Decimal    = MYSQL_TYPE_DECIMAL,
     Tiny       = MYSQL_TYPE_TINY,
@@ -62,9 +62,8 @@ pub enum SQLType {
     /// SQLFieldType for what type it is.
     Unsupported(String, String, SQLFieldType)
 }
-
-impl SQLType {
-    pub fn to_string(&self) -> String {
+impl ToString for SQLType {
+    fn to_string(&self) -> String {
         match *self {
             SQLType::Tiny(e)                  => e.to_string(),
             SQLType::Short(e)                 => e.to_string(),
@@ -76,15 +75,19 @@ impl SQLType {
             SQLType::Unsupported(ref e, _, _) => e.clone(),
         }
     }
+}
+
+
+impl SQLType {
     pub fn get_name_of_enum(&self) -> String {
         match *self {
-            SQLType::Tiny(_)                  => "Tiny".to_string(),
-            SQLType::Short(_)                 => "Short".to_string(),
-            SQLType::Int(_)                   => "Int".to_string(),
-            SQLType::Long(_)                  => "Long".to_string(),
-            SQLType::Float(_)                 => "Float".to_string(),
-            SQLType::Double(_)                => "Double".to_string(),
-            SQLType::VarChar(_, size)         => "VARCHAR(".to_string() + &size.to_string() + ")",
+            SQLType::Tiny(_)                  => "TINYINT".to_string(),
+            SQLType::Short(_)                 => "SMALLINT".to_string(),
+            SQLType::Int(_)                   => "INT".to_string(),
+            SQLType::Long(_)                  => "BIGINT".to_string(),
+            SQLType::Float(_)                 => "FLOAT".to_string(),
+            SQLType::Double(_)                => "DOUBLE".to_string(),
+            SQLType::VarChar(_, size)         => format!("VARCHAR({})", size.to_string()),
             SQLType::Unsupported(_, ref e, _) => e.clone()
         }
     }
@@ -146,6 +149,56 @@ impl SQLType {
         match *self {
             SQLType::Unsupported(_, _, _) => true,
             _                             => false
+        }
+    }
+    pub fn get_i8(&self) -> Option<i8> {
+        match *self {
+            SQLType::Tiny(i) => Some(i),
+            _ => None
+        }
+    }
+    pub fn get_i32(&self) -> Option<i32> {
+        match *self {
+            SQLType::Int(i) => Some(i),
+            _ => None
+        }
+    }
+    pub fn get_string(&self) -> Option<String> {
+        match *self {
+            SQLType::VarChar(ref s, _) => Some(s.clone()),
+            _ => None
+        }
+    }
+}
+
+/// This is basically only for getting the Type from when doing "dexcribe table", and so doesn't
+/// need to provide useful data internally. Just the type of SQLType that it is.
+impl ::std::str::FromStr for SQLType {
+    type Err = String;
+    fn from_str(words: &str) -> Result<Self, Self::Err> {
+        let v: Vec<String> = words.split('(').map(|e| e.to_string()).collect();
+        if v.len() != 2 {
+            return Err("Didn't split to 2".to_string());
+        }
+        //v[1].pop();
+        let name = v[0].clone();
+        //let size = usize::from_str(&v[1]);
+        if name == "tinyint" {
+            Ok(SQLType::Tiny(0))
+        } else if name == "smallint" {
+            Ok(SQLType::Short(0))
+        } else if name == "int" {
+            Ok(SQLType::Int(0))
+        } else if name == "bigint" {
+            Ok(SQLType::Long(0))
+        } else if name == "float" {
+            Ok(SQLType::Float(0.0))
+        } else if name == "double" {
+            Ok(SQLType::Double(0.0))
+        } else if name == "varchar" {
+            Ok(SQLType::VarChar(name, 0))
+        } else {
+            Err(format!("Invalid name.  {}", name))
         }
     }
 }

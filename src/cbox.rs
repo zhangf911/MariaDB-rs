@@ -60,11 +60,11 @@ impl<T> Drop for CBox<T> {
     }
 }
 
-pub fn from_cstr(str_in: &CBox<c_char>) -> String {
+pub fn from_cstr(str_in: *const c_char) -> String {
     let mut str_out = String::new();
-    let mut pos = 0;
-    while str_in[pos] != 0 {
-        str_out.push(str_in[pos] as u8 as char);
+    let mut pos: isize = 0;
+    while unsafe { *str_in.offset(pos) } != 0 {
+        str_out.push(unsafe { *str_in.offset(pos) } as u8 as char);
         pos += 1;
     }
     str_out
@@ -72,16 +72,17 @@ pub fn from_cstr(str_in: &CBox<c_char>) -> String {
 
 pub fn to_cstr(str_in: &str) -> CBox<c_char> {
     let bytes = str_in.bytes();
-    let mut var = CBox::from_raw(unsafe { malloc((bytes.len() + 1) as size_t) as *mut i8});
+    let mut var = CBox::new(bytes.len() + 1);
     let mut pos = 0;
     for i in bytes {
-        var[pos] = i as i8;
+        var[pos] = i as c_char;
         pos += 1;
     }
 
     //NUL terminate the end
-    var[str_in.len()] = 0;
-    
+    if str_in.len() != 0 {
+        var[str_in.len()] = 0;
+    }
     var
 }
 

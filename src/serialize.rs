@@ -1,6 +1,7 @@
 //! This crates trait definitions
 
 use ::types::SQLType;
+use ::std::str::FromStr;
 
 /// Implement this trait to pass the struct along to helper functions to push into a table.
 pub trait SerializeSQL {
@@ -40,12 +41,42 @@ macro_rules! impl_sql_serialize {
 }
 
 
-struct TestStruct {
+pub struct TestStruct {
     name: String,
     id: i32,
     flag: i8
 }
-impl_sql_serialize!(TestStruct; name, id, flag);
+//impl_sql_serialize!(TestStruct; name, id, flag);
+impl SerializeSQL for TestStruct {
+    fn to_sql(&self) -> Vec<SQLType> {
+        vec![
+            SQLType::VarChar(self.name.clone(), 60),
+            SQLType::Int(self.id),
+            SQLType::Tiny(self.flag),
+        ]
+    }
+    fn from_sql(from: Vec<SQLType>) -> Self {
+        TestStruct {
+            name: from[0].get_string().unwrap(),
+            id:   from[1].get_i32().unwrap(),
+            flag: from[2].get_i8().unwrap(),
+        }
+    }
+    fn from_sql_str(from: Vec<String>) -> Result<Self, String> {
+        Ok(TestStruct {
+            name: from[0].clone(),
+            id: i32::from_str(&from[1]).unwrap(),
+            flag: i8::from_str(&from[2]).unwrap(),
+        })
+    }
+    fn new_sql_repr() -> Vec<SQLType> {
+        vec![
+            SQLType::VarChar("".to_string(), 60),
+            SQLType::Int(0),
+            SQLType::Tiny(0),
+        ]
+    }
+}
 impl TestStruct {
     pub fn new() -> Self {
         TestStruct {
