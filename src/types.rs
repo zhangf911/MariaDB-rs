@@ -80,6 +80,7 @@ impl ToString for SQLType {
 
 impl SQLType {
     pub fn get_name_of_enum(&self) -> String {
+        //These may be wrong, need to test yet.
         match *self {
             SQLType::Tiny(_)                  => "TINYINT".to_string(),
             SQLType::Short(_)                 => "SMALLINT".to_string(),

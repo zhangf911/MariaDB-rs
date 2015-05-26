@@ -42,24 +42,17 @@ impl Connection {
     /// Attempt to switch the active db to the given name.
     /// Returns Ok if it worked.
     pub fn switch_db(&mut self, new_db: String) -> Result<(), String> {
-        match self.raw_query_no_res(&format!("use {};", new_db)) {
-            Ok(o)  => Ok(o),
-            Err(err) => Err(format!("Switch to database of the name \"{}\" failed. Reason: {}", new_db, err))
-        }
+        Ok(try!(self.raw_query_no_res(&format!("use {};", new_db))))
     }
 
     /// Attempt to get a list of all tables that exist on this database.
     pub fn get_tables_list(&self) -> Result<Vec<String>, String> {
-        let result = match self.raw_query("show tables;", 1) {
-            Ok(r) => r,
-            Err(err_msg) => return Err(err_msg),
-        };
+        let result = try!(self.raw_query("show tables;", 1));
 
         //Simplify from the Vec<Vec<String>> to just Vec<String>
         Ok(result.into_iter().map(|e| e[0].clone()).collect())
     }
     
-    #[allow(unused_variables)]
     /// Query for a list of all contents in a table with no delimiter.
     pub fn read_table_strings(&self, name: &str, width: isize) -> Result<Vec<Vec<String>>, String> {
         let query = format!("select * from {};", name);
@@ -68,24 +61,16 @@ impl Connection {
 
     /// Attempts to create a table from the currently active database.
     pub fn create_table(&self, table_name: &str, table_contents: &str) -> Result<(), String> {
-        match self.raw_query_no_res(&format!("create table {} ({});", table_name, table_contents)) {
-            Ok(o)  => Ok(o),
-            Err(err) => Err(format!("Create table of the name \"{}\" and contents \"{}\" failed. Reason: {}", table_name, table_contents, err))
-        }
+        Ok(try!(self.raw_query_no_res(&format!("create table {} ({});", table_name, table_contents))))
     }
 
     /// Delete the given table from the currently active database.
     pub fn drop_table(&self, table_name: &str) -> Result<(), String> {
-        match self.raw_query_no_res(&format!("drop table {};", table_name)) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(format!("Drop table {} failed.  Reason: {}", table_name, err))
-        }
+        Ok(try!(self.raw_query_no_res(&format!("drop table {};", table_name))))
     }
     
     /// Sends the given string as a query to the SQL server.
-    /// Not recommened to use directly, use other functions if possible.
-    /// 
-    /// Public only in case a feature is missing, might convert to private later.
+    /// Can use this directly, or any of the helper functions.  Up to you.
     pub fn raw_query(&self, query: &str, wide: isize) -> Result<Vec<Vec<String>>, String> {
         if wide < 1 {
             return Err(format!("Invalid width for query. Must be larger than zero. Given width was {}", wide));
@@ -130,51 +115,47 @@ impl Connection {
     
     /// Insert an object into a table.
     pub fn insert_struct<T: SerializeSQL>(&self, table_name: &str, obj: &T) -> Result<(), String> {
-        if match self.check_struct::<T>(table_name) {
-            Ok(b) => b,
-            Err(e) => return Err(e)
-        } {
+        if try!(self.check_struct::<T>(table_name)) {
             let list = obj.to_sql();
-            let mut ins = "(".to_string();
+            let mut ins = String::new();
+            println!("{} -- {}", list[0].to_string().len(), list[0].to_string());
             for i in &list {
-                ins = ins + &i.to_string();
+                ins = ins + &i.to_string() + ", ";
             }
+            ins.pop(); ins.pop();
+
+            try!(self.raw_query_no_res(&format!("insert into {} VALUES({});", table_name, ins)));
+            
             return Ok(())
+        } else {
+            Err("Struct did not match what is in the table.".to_string())
         }
-        Err("Not yet implemented!".to_string())
     }
 
     /// Checks if the struct and table match. 
     fn check_struct<T: SerializeSQL>(&self, table_name: &str) -> Result<bool, String> {
         let repr = T::new_sql_repr();
-        let table_repr = match self.get_table_repr(table_name) {
-            Ok(e) => e,
-            Err(msg) => return Err(msg)
-        };
+        let table_repr = try!(self.get_table_repr(table_name));
         if repr.len() != table_repr.len() {
-            println!("false at len check.");
             return Ok(false);
         }
         for i in 0..repr.len() {
-            if repr[i].get_field_type() != table_repr[i].get_field_type() {
-                println!("false in field type check");
+            if repr[i].0 != &table_repr[i].0 {
+                return Ok(false);
+            }
+            if repr[i].1.get_field_type() != table_repr[i].1.get_field_type() {
                 return Ok(false);
             }
         }
         Ok(true)
     }
-    fn get_table_repr(&self, table_name: &str) -> Result<Vec<SQLType>, String> {
-        let list: Vec<String> = match self.raw_query(&format!("describe {};", table_name), 2) {
-            Ok(o) => o,
-            Err(msg) => return Err(msg)
-        }.into_iter().map(|e| e[1].clone()).collect();
+    fn get_table_repr(&self, table_name: &str) -> Result<Vec<(String, SQLType)>, String> {
+        let list: Vec<(String, String)> = try!(self.raw_query(&format!("describe {};", table_name), 2))
+            .into_iter().map(|e| (e[0].clone(), e[1].clone())).collect();
         let mut v = Vec::new();
         for i in &list {
-            let temp = match SQLType::from_str(i) {
-                Ok(o) => o,
-                Err(err) => return Err(format!("Failed to read {} to SQLType.  {}", i, err))
-            };
-            v.push(temp);
+            let temp = try!(SQLType::from_str(&i.1));
+            v.push((i.0.clone(), temp));
         }
         Ok(v)
     }

@@ -14,7 +14,7 @@ pub trait SerializeSQL {
     fn from_sql_str(Vec<String>) -> Result<Self, String>;
     /// Get the sql reprensation of the struct for when creating a new table.
     /// SQLTypes may as well be blank, as the enum is only used as an identifier for this.
-    fn new_sql_repr() -> Vec<SQLType>;
+    fn new_sql_repr() -> Vec<(&'static str, SQLType)>;
 }
 
 #[macro_export]
@@ -33,7 +33,7 @@ macro_rules! impl_sql_serialize {
                 fn from_sql_str(list: Vec<String>) -> Result<Self, String> {
                     Err("Not yet implemented!".to_string())
                 }
-                fn new_sql_repr() -> Vec<SQLType> {
+                fn new_sql_repr() -> Vec<(&'static str, SQLType)> {
                     vec![]
                 }
             }
@@ -50,7 +50,7 @@ pub struct TestStruct {
 impl SerializeSQL for TestStruct {
     fn to_sql(&self) -> Vec<SQLType> {
         vec![
-            SQLType::VarChar(self.name.clone(), 60),
+            SQLType::VarChar("'".to_string() + &self.name + "'", 60),
             SQLType::Int(self.id),
             SQLType::Tiny(self.flag),
         ]
@@ -69,18 +69,18 @@ impl SerializeSQL for TestStruct {
             flag: i8::from_str(&from[2]).unwrap(),
         })
     }
-    fn new_sql_repr() -> Vec<SQLType> {
+    fn new_sql_repr() -> Vec<(&'static str, SQLType)> {
         vec![
-            SQLType::VarChar("".to_string(), 60),
-            SQLType::Int(0),
-            SQLType::Tiny(0),
+            ("name", SQLType::VarChar("".to_string(), 60)),
+            ("id",   SQLType::Int(0)),
+            ("flag", SQLType::Tiny(0)),
         ]
     }
 }
 impl TestStruct {
     pub fn new() -> Self {
         TestStruct {
-            name: "".to_string(),
+            name: "Example".to_string(),
             id: 0,
             flag: 0,
         }
