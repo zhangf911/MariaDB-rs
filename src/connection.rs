@@ -6,7 +6,7 @@ use ::ffi::mysql::{MYSQL, MYSQL_RES, MYSQL_ROW, mysql_init, mysql_real_connect, 
 use ::std::ptr;
 use ::serialize::SerializeSQL;
 use ::types::SQLType;
-use ::cbox::{from_cstr, to_cstr};
+use ::cstr::{from_cstr, to_cstr};
 use ::std::str::FromStr;
 
 /// A connection to a MySQL server
@@ -24,10 +24,10 @@ impl Connection {
     pub fn new(address: &str, user: &str, password: &str, database: &str) -> Result<Self, String> {
         let conn = unsafe { mysql_init(ptr::null_mut()) };
         if unsafe { mysql_real_connect(conn,
-                                         to_cstr(address).get_raw(),
-                                         to_cstr(user).get_raw(),
-                                         to_cstr(password).get_raw(),
-                                         to_cstr(database).get_raw(),
+                                         to_cstr(address).as_ptr(),
+                                         to_cstr(user).as_ptr(),
+                                         to_cstr(password).as_ptr(),
+                                         to_cstr(database).as_ptr(),
                                          0, ptr::null(), 0) }.is_null() {
             let err_msg = from_cstr(unsafe { mysql_error(conn) });
             unsafe { mysql_close(conn) };
@@ -75,7 +75,7 @@ impl Connection {
         if wide < 1 {
             return Err(format!("Invalid width for query. Must be larger than zero. Given width was {}", wide));
         }
-        if unsafe { mysql_query(self.conn, to_cstr(query).get_raw()) } != 0 {
+        if unsafe { mysql_query(self.conn, to_cstr(query).as_ptr()) } != 0 {
             return Err(from_cstr(unsafe { mysql_error(self.conn) }));
         }
         
@@ -105,7 +105,7 @@ impl Connection {
     /// Sends the given string as a query to the SQL server.
     /// Does not even attempt to read a result.
     pub fn raw_query_no_res(&self, query: &str) -> Result<(), String> {
-        if unsafe { mysql_query(self.conn, to_cstr(query).get_raw()) } != 0 {
+        if unsafe { mysql_query(self.conn, to_cstr(query).as_ptr()) } != 0 {
             let error = from_cstr(unsafe { mysql_error(self.conn) });
             Err(format!("Query of ({}) failed. Reason: {}", query, error))
         } else {

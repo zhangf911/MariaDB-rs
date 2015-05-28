@@ -16,7 +16,7 @@
 extern crate libc;
 
 mod connection;
-mod cbox;
+mod cstr;
 mod ffi;
 mod types;
 mod serialize;
